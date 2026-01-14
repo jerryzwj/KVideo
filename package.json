@@ -32,5 +32,10 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  {
+  "scripts": {
+    "pages:build": "opennext build && opennext prepare --preset cloudflare"
   }
+}
 }
