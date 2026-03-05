@@ -1,6 +1,5 @@
 'use client';
 
-import { Suspense } from 'react';
 import { AddSourceModal } from '@/components/settings/AddSourceModal';
 import { ExportModal } from '@/components/settings/ExportModal';
 import { ImportModal } from '@/components/settings/ImportModal';
@@ -8,20 +7,23 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SourceSettings } from '@/components/settings/SourceSettings';
 import { SortSettings } from '@/components/settings/SortSettings';
 import { DataSettings } from '@/components/settings/DataSettings';
-import { PasswordSettings } from '@/components/settings/PasswordSettings';
+import { AccountSettings } from '@/components/settings/AccountSettings';
 import { DisplaySettings } from '@/components/settings/DisplaySettings';
+import { PlayerSettings } from '@/components/settings/PlayerSettings';
 import { SettingsHeader } from '@/components/settings/SettingsHeader';
+import { UserSourceSettings } from '@/components/settings/UserSourceSettings';
+import { UserDanmakuSettings } from '@/components/settings/UserDanmakuSettings';
+import { PermissionGate } from '@/components/PermissionGate';
+import { hasPermission } from '@/lib/store/auth-store';
 import { useSettingsPage } from './hooks/useSettingsPage';
 
 export default function SettingsPage() {
   const {
     sources,
     sortBy,
-    passwordAccess,
-    accessPasswords,
-    envPasswordSet,
     realtimeLatency,
     searchDisplayMode,
+    fullscreenType,
     isAddModalOpen,
     isExportModalOpen,
     isImportModalOpen,
@@ -35,9 +37,6 @@ export default function SettingsPage() {
     handleSourcesChange,
     handleAddSource,
     handleSortChange,
-    handlePasswordToggle,
-    handleAddPassword,
-    handleRemovePassword,
     handleExport,
     handleImportFile,
     handleImportLink,
@@ -52,6 +51,21 @@ export default function SettingsPage() {
     setEditingSource,
     handleRealtimeLatencyChange,
     handleSearchDisplayModeChange,
+    handleFullscreenTypeChange,
+    proxyMode,
+    handleProxyModeChange,
+    rememberScrollPosition,
+    handleRememberScrollPositionChange,
+    locale,
+    handleLocaleChange,
+    danmakuApiUrl,
+    handleDanmakuApiUrlChange,
+    danmakuOpacity,
+    handleDanmakuOpacityChange,
+    danmakuFontSize,
+    handleDanmakuFontSizeChange,
+    danmakuDisplayArea,
+    handleDanmakuDisplayAreaChange,
   } = useSettingsPage();
 
   return (
@@ -60,35 +74,59 @@ export default function SettingsPage() {
         {/* Header */}
         <SettingsHeader />
 
-        {/* Password Settings */}
-        <PasswordSettings
-          enabled={passwordAccess}
-          passwords={accessPasswords}
-          envPasswordSet={envPasswordSet}
-          onToggle={handlePasswordToggle}
-          onAdd={handleAddPassword}
-          onRemove={handleRemovePassword}
-        />
+        {/* Account Settings */}
+        <AccountSettings />
+
+        {/* Player Settings */}
+        <PermissionGate permission="player_settings">
+          <PlayerSettings
+            fullscreenType={fullscreenType}
+            onFullscreenTypeChange={handleFullscreenTypeChange}
+            proxyMode={proxyMode}
+            onProxyModeChange={handleProxyModeChange}
+            danmakuApiUrl={danmakuApiUrl}
+            onDanmakuApiUrlChange={handleDanmakuApiUrlChange}
+            danmakuOpacity={danmakuOpacity}
+            onDanmakuOpacityChange={handleDanmakuOpacityChange}
+            danmakuFontSize={danmakuFontSize}
+            onDanmakuFontSizeChange={handleDanmakuFontSizeChange}
+            danmakuDisplayArea={danmakuDisplayArea}
+            onDanmakuDisplayAreaChange={handleDanmakuDisplayAreaChange}
+            showDanmakuApi={hasPermission('danmaku_api')}
+          />
+        </PermissionGate>
 
         {/* Display Settings */}
         <DisplaySettings
           realtimeLatency={realtimeLatency}
           searchDisplayMode={searchDisplayMode}
+          rememberScrollPosition={rememberScrollPosition}
           onRealtimeLatencyChange={handleRealtimeLatencyChange}
           onSearchDisplayModeChange={handleSearchDisplayModeChange}
+          onRememberScrollPositionChange={handleRememberScrollPositionChange}
+          locale={locale}
+          onLocaleChange={handleLocaleChange}
         />
 
+        {/* Per-User Source Settings (visible to all logged-in users) */}
+        <UserSourceSettings />
+
+        {/* Per-User Danmaku Settings (visible to all logged-in users) */}
+        <UserDanmakuSettings />
+
         {/* Source Management */}
-        <SourceSettings
-          sources={sources}
-          onSourcesChange={handleSourcesChange}
-          onRestoreDefaults={() => setIsRestoreDefaultsDialogOpen(true)}
-          onAddSource={() => {
-            setEditingSource(null);
-            setIsAddModalOpen(true);
-          }}
-          onEditSource={handleEditSource}
-        />
+        <PermissionGate permission="source_management">
+          <SourceSettings
+            sources={sources}
+            onSourcesChange={handleSourcesChange}
+            onRestoreDefaults={() => setIsRestoreDefaultsDialogOpen(true)}
+            onAddSource={() => {
+              setEditingSource(null);
+              setIsAddModalOpen(true);
+            }}
+            onEditSource={handleEditSource}
+          />
+        </PermissionGate>
 
         {/* Sort Options */}
         <SortSettings
@@ -97,11 +135,13 @@ export default function SettingsPage() {
         />
 
         {/* Data Management */}
-        <DataSettings
-          onExport={() => setIsExportModalOpen(true)}
-          onImport={() => setIsImportModalOpen(true)}
-          onReset={() => setIsResetDialogOpen(true)}
-        />
+        <PermissionGate permission="data_management">
+          <DataSettings
+            onExport={() => setIsExportModalOpen(true)}
+            onImport={() => setIsImportModalOpen(true)}
+            onReset={() => setIsResetDialogOpen(true)}
+          />
+        </PermissionGate>
       </div>
 
       {/* Modals */}
@@ -156,4 +196,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

@@ -4,6 +4,7 @@ import { useSearchCache } from '@/lib/hooks/useSearchCache';
 import { useParallelSearch } from '@/lib/hooks/useParallelSearch';
 import { useSubscriptionSync } from '@/lib/hooks/useSubscriptionSync';
 import { settingsStore, type SortOption } from '@/lib/store/settings-store';
+import { userSourcesStore } from '@/lib/store/user-sources-store';
 
 export function useHomePage() {
     useSubscriptionSync();
@@ -12,6 +13,7 @@ export function useHomePage() {
     const { loadFromCache, saveToCache } = useSearchCache();
     const hasLoadedCache = useRef(false);
     const hasSearchedWithSourcesRef = useRef(false);
+    const isInitialCacheLoad = useRef(false);
 
     const [query, setQuery] = useState('');
     const [hasSearched, setHasSearched] = useState(false);
@@ -32,6 +34,9 @@ export function useHomePage() {
         resetSearch,
         loadCachedResults,
         applySorting,
+        loadMore,
+        hasMore,
+        loadingMore,
     } = useParallelSearch(
         saveToCache,
         onUrlUpdate
@@ -44,18 +49,29 @@ export function useHomePage() {
         const settings = settingsStore.getSettings();
         const enabledSources = settings.sources.filter(s => s.enabled);
 
-        if (enabledSources.length === 0) {
+        // Merge user personal sources
+        const userSources = userSourcesStore.getSources().filter(s => s.enabled !== false);
+        const allSources = [...enabledSources];
+        for (const us of userSources) {
+            if (!allSources.find(s => s.id === us.id)) {
+                allSources.push(us);
+            }
+        }
+
+        if (allSources.length === 0) {
             return false;
         }
 
-        performSearch(searchQuery, enabledSources, settings.sortBy);
+        performSearch(searchQuery, allSources, settings.sortBy);
         hasSearchedWithSourcesRef.current = true;
         return true;
     }, [performSearch]);
 
     // Re-sort results when sort preference changes
     useEffect(() => {
-        if (hasSearched && results.length > 0) {
+        // Skip re-sorting if this is a load from cache, to preserve the "remembered" position
+        // Only re-sort if the user explicitly changes the sortBy option later
+        if (hasSearched && results.length > 0 && !isInitialCacheLoad.current) {
             applySorting(currentSortBy);
         }
     }, [currentSortBy, applySorting, hasSearched, results.length]);
@@ -95,6 +111,14 @@ export function useHomePage() {
 
     const handleSearch = useCallback((searchQuery: string) => {
         if (!searchQuery.trim()) return;
+
+        // Clear scroll position for this search query to ensure we start at the top on a fresh search
+        const scrollKey = `scroll-pos:/?q=${encodeURIComponent(searchQuery)}`;
+        sessionStorage.removeItem(scrollKey);
+
+        // Reset cache load flag for new search
+        isInitialCacheLoad.current = false;
+
         setQuery(searchQuery);
         setHasSearched(true);
         executeSearch(searchQuery);
@@ -111,6 +135,7 @@ export function useHomePage() {
         if (urlQuery) {
             setQuery(urlQuery);
             if (cached && cached.query === urlQuery && cached.results.length > 0) {
+                isInitialCacheLoad.current = true;
                 setHasSearched(true);
                 loadCachedResults(cached.results, cached.availableSources);
                 hasSearchedWithSourcesRef.current = true;
@@ -140,5 +165,8 @@ export function useHomePage() {
         totalSources,
         handleSearch,
         handleReset,
+        loadMore,
+        hasMore,
+        loadingMore,
     };
 }

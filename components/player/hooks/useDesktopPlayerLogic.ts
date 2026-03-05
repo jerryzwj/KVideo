@@ -22,6 +22,8 @@ interface UseDesktopPlayerLogicProps {
     refs: DesktopPlayerState['refs'];
     data: DesktopPlayerState['data'];
     actions: DesktopPlayerState['actions'];
+    fullscreenType?: 'native' | 'window';
+    isForceLandscape?: boolean;
 }
 
 export function useDesktopPlayerLogic({
@@ -32,7 +34,9 @@ export function useDesktopPlayerLogic({
     onTimeUpdate,
     refs,
     data,
-    actions
+    actions,
+    fullscreenType = 'native',
+    isForceLandscape = false
 }: UseDesktopPlayerLogicProps) {
     const {
         videoRef, containerRef, progressBarRef, volumeBarRef,
@@ -91,7 +95,8 @@ export function useDesktopPlayerLogic({
     const playbackControls = usePlaybackControls({
         videoRef, isPlaying, setIsPlaying, setIsLoading,
         initialTime, shouldAutoPlay, setDuration, setCurrentTime, onTimeUpdate, onError,
-        isDraggingProgressRef, speedMenuTimeoutRef, playbackRate, setPlaybackRate, setShowSpeedMenu
+        isDraggingProgressRef, speedMenuTimeoutRef, playbackRate, setPlaybackRate, setShowSpeedMenu,
+        volume, isMuted
     });
 
     const volumeControls = useVolumeControls({
@@ -102,7 +107,8 @@ export function useDesktopPlayerLogic({
 
     const progressControls = useProgressControls({
         videoRef, progressBarRef, duration,
-        setCurrentTime, isDraggingProgressRef
+        setCurrentTime, isDraggingProgressRef,
+        isRotated: isForceLandscape
     });
 
     const skipControls = useSkipControls({
@@ -117,7 +123,8 @@ export function useDesktopPlayerLogic({
 
     const fullscreenControls = useFullscreenControls({
         containerRef, videoRef, isFullscreen, setIsFullscreen,
-        isPiPSupported, isAirPlaySupported, setIsPiPSupported, setIsAirPlaySupported
+        isPiPSupported, isAirPlaySupported, setIsPiPSupported, setIsAirPlaySupported,
+        fullscreenType
     });
 
     const controlsVisibility = useControlsVisibility({
@@ -148,6 +155,7 @@ export function useDesktopPlayerLogic({
 
     return useMemo(() => ({
         handleMouseMove: controlsVisibility.handleMouseMove,
+        handleTouchToggleControls: controlsVisibility.handleTouchToggleControls,
         togglePlay: playbackControls.togglePlay,
         handlePlay: playbackControls.handlePlay,
         handlePause: playbackControls.handlePause,

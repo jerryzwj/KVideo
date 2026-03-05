@@ -35,6 +35,7 @@ interface DesktopOverlayProps {
     onSpeedMenuMouseEnter: () => void;
     onSpeedMenuMouseLeave: () => void;
     containerRef: React.RefObject<HTMLDivElement | null>;
+    isRotated?: boolean;
 }
 
 export function DesktopOverlay({
@@ -67,14 +68,15 @@ export function DesktopOverlay({
     onSpeedMenuMouseEnter,
     onSpeedMenuMouseLeave,
     containerRef,
+    isRotated = false,
 }: DesktopOverlayProps) {
     // Show navigation buttons when controls are visible or when paused (controls usually show when paused anyway)
     const showNavButtons = showControls || !isPlaying;
 
     return (
         <>
-            {/* More Menu (Top Left) */}
-            <div className={`absolute top-6 left-6 z-50 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`} style={{ pointerEvents: showControls ? 'auto' : 'none' }}>
+            {/* More Menu (Top Left) - Moved slightly down and lower z-index to stay below navbar */}
+            <div className={`absolute top-8 left-6 z-40 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`} style={{ pointerEvents: showControls ? 'auto' : 'none' }}>
                 <DesktopMoreMenu
                     showMoreMenu={showMoreMenu}
                     isProxied={isProxied}
@@ -83,11 +85,12 @@ export function DesktopOverlay({
                     onMouseLeave={onMoreMenuMouseLeave}
                     onCopyLink={onCopyLink}
                     containerRef={containerRef}
+                    isRotated={isRotated}
                 />
             </div>
 
-            {/* Speed Menu (Top Right) */}
-            <div className={`absolute top-6 right-6 z-50 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`} style={{ pointerEvents: showControls ? 'auto' : 'none' }}>
+            {/* Speed Menu (Top Right) - Moved slightly down and lower z-index */}
+            <div className={`absolute top-8 right-6 z-40 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`} style={{ pointerEvents: showControls ? 'auto' : 'none' }}>
                 <DesktopSpeedMenu
                     showSpeedMenu={showSpeedMenu}
                     playbackRate={playbackRate}
@@ -97,6 +100,7 @@ export function DesktopOverlay({
                     onMouseEnter={onSpeedMenuMouseEnter}
                     onMouseLeave={onSpeedMenuMouseLeave}
                     containerRef={containerRef}
+                    isRotated={isRotated}
                 />
             </div>
 
@@ -145,7 +149,7 @@ export function DesktopOverlay({
                         e.stopPropagation();
                         onSkipBackward();
                     }}
-                    className="group flex items-center justify-center w-10 h-10 md:w-16 md:h-16 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm transition-all duration-300 hover:scale-110 active:scale-95"
+                    className="group flex items-center justify-center w-10 h-10 md:w-16 md:h-16 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer"
                     aria-label="后退 10 秒"
                 >
                     <Icons.SkipBack className="w-5 h-5 md:w-8 md:h-8 text-white/80 group-hover:text-white" />
@@ -163,7 +167,7 @@ export function DesktopOverlay({
                         e.stopPropagation();
                         onSkipForward();
                     }}
-                    className="group flex items-center justify-center w-10 h-10 md:w-16 md:h-16 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm transition-all duration-300 hover:scale-110 active:scale-95"
+                    className="group flex items-center justify-center w-10 h-10 md:w-16 md:h-16 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer"
                     aria-label="前进 10 秒"
                 >
                     <Icons.FastForward className="w-5 h-5 md:w-8 md:h-8 text-white/80 group-hover:text-white" />

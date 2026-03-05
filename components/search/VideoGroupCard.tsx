@@ -31,6 +31,7 @@ interface VideoGroupCardProps {
     isActive: boolean;
     onCardClick: (e: React.MouseEvent, cardId: string, videoUrl: string) => void;
     isPremium?: boolean;
+    latencies?: Record<string, number>;
 }
 
 export const VideoGroupCard = memo<VideoGroupCardProps>(({
@@ -38,15 +39,16 @@ export const VideoGroupCard = memo<VideoGroupCardProps>(({
     cardId,
     isActive,
     onCardClick,
-    isPremium = false
+    isPremium = false,
+    latencies = {}
 }) => {
     const { representative, videos, name } = group;
 
-    // Best latency from the group
+    // Best latency from the group, preferring real-time updates
     const bestLatency = useMemo(() => {
-        const latencies = videos.filter(v => v.latency !== undefined).map(v => v.latency!);
-        return latencies.length > 0 ? Math.min(...latencies) : undefined;
-    }, [videos]);
+        const currentLatencies = videos.map(v => latencies[v.source] ?? v.latency).filter(l => l !== undefined) as number[];
+        return currentLatencies.length > 0 ? Math.min(...currentLatencies) : undefined;
+    }, [videos, latencies]);
 
     // Generate URL with grouped sources data
     const videoUrl = useMemo(() => {
@@ -64,6 +66,8 @@ export const VideoGroupCard = memo<VideoGroupCardProps>(({
                 sourceName: v.sourceName,
                 latency: v.latency,
                 pic: v.vod_pic,
+                typeName: v.type_name,
+                remarks: v.vod_remarks,
             }));
             params.set('groupedSources', JSON.stringify(groupData));
         }
@@ -87,6 +91,7 @@ export const VideoGroupCard = memo<VideoGroupCardProps>(({
                 role="listitem"
                 aria-label={`${name} - ${videos.length} 个源${representative.vod_remarks ? ` - ${representative.vod_remarks}` : ''}`}
                 prefetch={false}
+                data-focusable
                 className="group cursor-pointer hover:translate-y-[-2px] transition-transform duration-200 ease-out block h-full"
             >
                 <Card
@@ -120,9 +125,10 @@ export const VideoGroupCard = memo<VideoGroupCardProps>(({
                             </div>
                         )}
 
-                        {/* Fallback Icon */}
-                        <div className="absolute inset-0 flex items-center justify-center -z-10">
-                            <Icons.Film size={64} className="text-[var(--text-color-secondary)] opacity-20" />
+                        {/* Fallback Icon - visible when image fails */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center -z-10 gap-2">
+                            <Icons.Film size={48} className="text-[var(--text-color-secondary)] opacity-40" />
+                            <span className="text-xs text-[var(--text-color-secondary)] opacity-60 px-2 text-center line-clamp-2">{name}</span>
                         </div>
 
                         {/* Badge Container */}
@@ -198,6 +204,11 @@ export const VideoGroupCard = memo<VideoGroupCardProps>(({
                                     {displayQuality && (
                                         <p className="text-xs text-[var(--text-color-secondary)] font-medium">
                                             {displayQuality}
+                                        </p>
+                                    )}
+                                    {representative.vod_lang && (
+                                        <p className="text-xs text-[var(--text-color-secondary)] mt-1">
+                                            {representative.vod_lang}
                                         </p>
                                     )}
                                 </>
