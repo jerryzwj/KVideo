@@ -7,10 +7,14 @@ import {
   hashPassword,
   normalizeUsername,
   parseBootstrapAccounts,
+  resolveLoginMode,
+  shouldUseSecureSessionCookie,
   signSessionPayload,
   verifyPassword,
   verifySessionToken,
+  type LoginMode,
   type SeedAccountInput,
+  type SessionCookieProtocolRequest,
   type SessionPayload,
   type StoredAccountRecord,
 } from '@/lib/server/auth-helpers';
@@ -22,7 +26,7 @@ import {
   type Role,
 } from '@/lib/auth/permissions';
 
-export type LoginMode = 'none' | 'legacy_password' | 'managed';
+export type { LoginMode };
 
 export interface ServerAuthSession {
   accountId: string;
@@ -79,6 +83,7 @@ const IPTV_SOURCES = process.env.IPTV_SOURCES || process.env.NEXT_PUBLIC_IPTV_SO
 const MERGE_SOURCES = process.env.MERGE_SOURCES || process.env.NEXT_PUBLIC_MERGE_SOURCES || '';
 const DANMAKU_API_URL = process.env.DANMAKU_API_URL || process.env.NEXT_PUBLIC_DANMAKU_API_URL || '';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const MANAGED_AUTH_FORCED = process.env.MANAGED_AUTH_ENABLED === 'true';
 
 const effectiveAdminPassword = ADMIN_PASSWORD || ACCESS_PASSWORD;
 
@@ -216,12 +221,14 @@ function getPublicRuntimeConfig(): Omit<PublicAuthConfig, 'hasAuth' | 'hasPremiu
 }
 
 export async function getPublicAuthConfig(): Promise<PublicAuthConfig> {
+  const managedAuthEnabled = isManagedAuthEnabled();
   const managedAccountCount = await getManagedAccountCount();
-  const loginMode: LoginMode = managedAccountCount > 0
-    ? 'managed'
-    : isLegacyAuthConfigured()
-      ? 'legacy_password'
-      : 'none';
+  const loginMode = resolveLoginMode({
+    managedAccountCount,
+    managedAuthEnabled,
+    managedAuthForced: MANAGED_AUTH_FORCED,
+    legacyAuthConfigured: isLegacyAuthConfigured(),
+  });
 
   return {
     hasAuth: loginMode !== 'none',
@@ -312,27 +319,6 @@ export async function getServerSession(request: NextRequest): Promise<ServerAuth
   if (!payload) return null;
 
   return sessionPayloadToServerSession(payload);
-}
-
-function applySessionCookie(response: NextResponse, token: string, persist: boolean): void {
-  response.cookies.set(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    ...(persist ? { maxAge: SESSION_MAX_AGE_SECONDS } : {}),
-  });
-}
-
-export function clearSessionCookie(response: NextResponse): NextResponse {
-  response.cookies.set(SESSION_COOKIE_NAME, '', {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 0,
-  });
-  return response;
 }
 
 export function hasServerPermission(session: ServerAuthSession, permission: Permission): boolean {
@@ -452,7 +438,10 @@ export async function validatePremiumAccess(
   return authenticateLegacyAdminCredential(body.password);
 }
 
-export async function createLoginResponse(session: ServerAuthSession): Promise<NextResponse> {
+export async function createLoginResponse(
+  session: ServerAuthSession,
+  request?: SessionCookieProtocolRequest,
+): Promise<NextResponse> {
   const config = await getPublicAuthConfig();
   const token = await signSession(session, config.loginMode);
   if (!token) {
@@ -465,7 +454,13 @@ export async function createLoginResponse(session: ServerAuthSession): Promise<N
     ...config,
   });
 
-  applySessionCookie(response, token, PERSIST_SESSION);
+  response.cookies.set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: shouldUseSecureSessionCookie(request),
+    path: '/',
+    ...(PERSIST_SESSION ? { maxAge: SESSION_MAX_AGE_SECONDS } : {}),
+  });
   return response;
 }
 
@@ -480,8 +475,16 @@ export async function createSessionStatusResponse(request: NextRequest): Promise
   });
 }
 
-export function logoutResponse(): NextResponse {
-  return clearSessionCookie(NextResponse.json({ success: true }));
+export function logoutResponse(request?: SessionCookieProtocolRequest): NextResponse {
+  const response = NextResponse.json({ success: true });
+  response.cookies.set(SESSION_COOKIE_NAME, '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: shouldUseSecureSessionCookie(request),
+    path: '/',
+    maxAge: 0,
+  });
+  return response;
 }
 
 export async function listAccountInfo(): Promise<AccountInfo[]> {
